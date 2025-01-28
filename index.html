@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Attendance Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="loading">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+    </div>
+
+    <nav class="bg-blue-600 text-white p-4 shadow-lg">
+        <h1 class="text-2xl font-bold text-center">College Attendance Management</h1>
+    </nav>
+
+    <div class="container mx-auto p-4">
+        <!-- Main Controls -->
+        <div class="flex flex-wrap gap-4 mb-6">
+            <button onclick="showSection('students')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Manage Students</button>
+            <button onclick="showSection('subjects')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Manage Subjects</button>
+            <button onclick="showSection('timetable')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Timetable</button>
+            <button onclick="showSection('attendance')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Mark Attendance</button>
+        </div>
+
+        <!-- Students Section -->
+        <div id="students" class="section hidden">
+            <div class="bg-white p-4 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">Student Management</h2>
+                <form id="studentForm" class="space-y-4">
+                    <div class="flex flex-wrap gap-4">
+                        <input type="text" id="studentName" placeholder="Student Name" class="border p-2 rounded">
+                        <input type="text" id="studentRoll" placeholder="Roll Number" class="border p-2 rounded">
+                        <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Add Student</button>
+                    </div>
+                </form>
+                <div class="mt-4">
+                    <h3 class="font-bold mb-2">Students List</h3>
+                    <div id="studentsList" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subjects Section -->
+        <div id="subjects" class="section hidden">
+            <div class="bg-white p-4 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">Subject Management</h2>
+                <form id="subjectForm" class="space-y-4">
+                    <div class="flex flex-wrap gap-4">
+                        <input type="text" id="subjectName" placeholder="Subject Name" class="border p-2 rounded">
+                        <input type="text" id="subjectCode" placeholder="Subject Code" class="border p-2 rounded">
+                        <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Add Subject</button>
+                    </div>
+                </form>
+                <div class="mt-4">
+                    <h3 class="font-bold mb-2">Subjects List</h3>
+                    <div id="subjectsList" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timetable Section -->
+        <div id="timetable" class="section hidden">
+            <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
+                <h2 class="text-xl font-bold mb-4">Weekly Timetable</h2>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr>
+                            <th class="border p-2">Time/Day</th>
+                            <th class="border p-2">Monday</th>
+                            <th class="border p-2">Tuesday</th>
+                            <th class="border p-2">Wednesday</th>
+                            <th class="border p-2">Thursday</th>
+                            <th class="border p-2">Friday</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timetableBody"></tbody>
+                </table>
+                <button onclick="addTimetableRow()" class="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Add Time Slot</button>
+            </div>
+        </div>
+
+        <!-- Attendance Section -->
+        <div id="attendance" class="section hidden">
+            <div class="bg-white p-4 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">Mark Attendance</h2>
+                <div class="flex flex-wrap gap-4 mb-4">
+                    <select id="subjectSelect" class="border p-2 rounded">
+                        <option value="">Select Subject</option>
+                    </select>
+                    <input type="date" id="attendanceDate" class="border p-2 rounded">
+                </div>
+                <div id="attendanceList" class="space-y-2"></div>
+                <button onclick="saveAttendance()" class="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Save Attendance</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Initialize data storage
+        let students = JSON.parse(localStorage.getItem('students')) || [];
+        let subjects = JSON.parse(localStorage.getItem('subjects')) || [];
+        let timetable = JSON.parse(localStorage.getItem('timetable')) || [];
+        let attendance = JSON.parse(localStorage.getItem('attendance')) || [];
+
+        // Generate unique ID for database
+        const userId = localStorage.getItem('userId') || 'user_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('userId', userId);
+
+        // Show/Hide sections
+        window.showSection = (sectionId) => {
+            document.querySelectorAll('.section').forEach(section => section.classList.add('hidden'));
+            document.getElementById(sectionId).classList.remove('hidden');
+        }
+
+        // Students Management
+        document.getElementById('studentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('studentName').value;
+            const roll = document.getElementById('studentRoll').value;
+            
+            const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/db', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer dxJmbFfXfndwIE1kkLhiBp9LWM72',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId,
+                    appSlug: 'attendance-app',
+                    action: 'create',
+                    table: 'students',
+                    data: { name, roll }
+                })
+            });
+            
+            const result = await response.json();
+            if (!result.error) {
+                students.push({ id: result.data[0].id, name, roll });
+                localStorage.setItem('students', JSON.stringify(students));
+                renderStudents();
+                e.target.reset();
+            }
+        });
+
+        function renderStudents() {
+            const list = document.getElementById('studentsList');
+            list.innerHTML = students.map(student => `
+                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span>${student.name} (${student.roll})</span>
+                    <button onclick="deleteStudent('${student.id}')" class="text-red-500 hover:text-red-700">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        window.deleteStudent = async (id) => {
+            await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/db', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer dxJmbFfXfndwIE1kkLhiBp9LWM72',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId,
+                    appSlug: 'attendance-app',
+                    action: 'delete',
+                    table: 'students',
+                    id
+                })
+            });
+            students = students.filter(s => s.id !== id);
+            localStorage.setItem('students', JSON.stringify(students));
+            renderStudents();
+        };
+
+        // Subjects Management
+        document.getElementById('subjectForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('subjectName').value;
+            const code = document.getElementById('subjectCode').value;
+            
+            const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/db', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer dxJmbFfXfndwIE1kkLhiBp9LWM72',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId,
+                    appSlug: 'attendance-app',
+                    action: 'create',
+                    table: 'subjects',
+                    data: { name, code }
+                })
+            });
+            
+            const result = await response.json();
+            if (!result.error) {
+                subjects.push({ id: result.data[0].id, name, code });
+                localStorage.setItem('subjects', JSON.stringify(subjects));
+                renderSubjects();
+                updateSubjectSelect();
+                e.target.reset();
+            }
+        });
+
+        function renderSubjects() {
+            const list = document.getElementById('subjectsList');
+            list.innerHTML = subjects.map(subject => `
+                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span>${subject.name} (${subject.code})</span>
+                    <button onclick="deleteSubject('${subject.id}')" class="text-red-500 hover:text-red-700">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        window.deleteSubject = async (id) => {
+            await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/db', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer dxJmbFfXfndwIE1kkLhiBp9LWM72',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId,
+                    appSlug: 'attendance-app',
+                    action: 'delete',
+                    table: 'subjects',
+                    id
+                })
+            });
+            subjects = subjects.filter(s => s.id !== id);
+            localStorage.setItem('subjects', JSON.stringify(subjects));
+            renderSubjects();
+            updateSubjectSelect();
+        };
+
+        // Timetable Management
+        window.addTimetableRow = () => {
+            const tbody = document.getElementById('timetableBody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="border p-2"><input type="time" class="border rounded p-1"></td>
+                ${Array(5).fill(0).map(() => `
+                    <td class="border p-2">
+                        <select class="border rounded p-1">
+                            <option value="">Select Subject</option>
+                            ${subjects.map(subject => `
+                                <option value="${subject.id}">${subject.name}</option>
+                            `).join('')}
+                        </select>
+                    </td>
+                `).join('')}
+            `;
+            tbody.appendChild(row);
+        };
+
+        // Attendance Management
+        function updateSubjectSelect() {
+            const select = document.getElementById('subjectSelect');
+            select.innerHTML = `
+                <option value="">Select Subject</option>
+                ${subjects.map(subject => `
+                    <option value="${subject.id}">${subject.name}</option>
+                `).join('')}
+            `;
+        }
+
+        document.getElementById('subjectSelect').addEventListener('change', () => {
+            renderAttendanceList();
+        });
+
+        document.getElementById('attendanceDate').addEventListener('change', () => {
+            renderAttendanceList();
+        });
+
+        function renderAttendanceList() {
+            const subjectId = document.getElementById('subjectSelect').value;
+            const date = document.getElementById('attendanceDate').value;
+            if (!subjectId || !date) return;
+
+            const list = document.getElementById('attendanceList');
+            list.innerHTML = students.map(student => `
+                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span>${student.name} (${student.roll})</span>
+                    <div>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="attendance_${student.id}" value="present" class="form-radio">
+                            <span class="ml-2">Present</span>
+                        </label>
+                        <label class="inline-flex items-center ml-4">
+                            <input type="radio" name="attendance_${student.id}" value="absent" class="form-radio">
+                            <span class="ml-2">Absent</span>
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.saveAttendance = async () => {
+            const subjectId = document.getElementById('subjectSelect').value;
+            const date = document.getElementById('attendanceDate').value;
+            if (!subjectId || !date) {
+                alert('Please select subject and date');
+                return;
+            }
+
+            const attendanceData = students.map(student => ({
+                studentId: student.id,
+                status: document.querySelector(`input[name="attendance_${student.id}"]:checked`)?.value || 'absent'
+            }));
+
+            const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/db', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer dxJmbFfXfndwIE1kkLhiBp9LWM72',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId,
+                    appSlug: 'attendance-app',
+                    action: 'create',
+                    table: 'attendance',
+                    data: { subjectId, date, attendance: attendanceData }
+                })
+            });
+
+            const result = await response.json();
+            if (!result.error) {
+                alert('Attendance saved successfully');
+                document.getElementById('subjectSelect').value = '';
+                document.getElementById('attendanceDate').value = '';
+                document.getElementById('attendanceList').innerHTML = '';
+            }
+        };
+
+        // Initial render
+        renderStudents();
+        renderSubjects();
+        updateSubjectSelect();
+        showSection('students');
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
